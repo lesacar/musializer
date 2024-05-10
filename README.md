@@ -1,5 +1,12 @@
 # Musializer
 
+Added theme support.
+Premade themes located in themes/
+The format for colors is "%x %x %x %x" (rgba)
+colorfft is not actually the color, but a multiplier to the color
+The changed code is not meant to be pretty, only an example
+Asides from the colors, there's also the shaderPath option, which is set to "circle.fs" by default, but you can set it to a custom shader, if you have one, I haven't written any.
+
 <p align=center>
   <img src="./resources/logo/logo-256.png">
 </p>
