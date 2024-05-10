@@ -22,6 +22,7 @@
 #define MUSIALIZER_PLUG
 #endif
 
+
 #ifndef MUSIALIZER_UNBUNDLE
 #include "bundle.h"
 
@@ -76,14 +77,16 @@ MUSIALIZER_PLUG void *plug_load_resource(const char *file_path, size_t *size)
 #define COLOR_TRACK_PANEL_BACKGROUND  ColorBrightness(COLOR_BACKGROUND, -0.1)
 #define COLOR_TRACK_BUTTON_BACKGROUND ColorBrightness(COLOR_BACKGROUND, 0.15)
 #define COLOR_TRACK_BUTTON_HOVEROVER  ColorBrightness(COLOR_TRACK_BUTTON_BACKGROUND, 0.15)
-#define COLOR_TRACK_BUTTON_SELECTED   COLOR_ACCENT
-#define COLOR_TIMELINE_CURSOR         COLOR_ACCENT
 #define COLOR_TIMELINE_BACKGROUND     ColorBrightness(COLOR_BACKGROUND, -0.3)
+#define COLOR_POPUP_BACKGROUND        ColorFromHSV(0, 0.75, 0.8)
+
 #define COLOR_HUD_BUTTON_BACKGROUND   COLOR_TRACK_BUTTON_BACKGROUND
 #define COLOR_HUD_BUTTON_HOVEROVER    COLOR_TRACK_BUTTON_HOVEROVER
-#define COLOR_POPUP_BACKGROUND        ColorFromHSV(0, 0.75, 0.8)
+#define COLOR_TRACK_BUTTON_SELECTED   COLOR_ACCENT
+#define COLOR_TIMELINE_CURSOR         COLOR_ACCENT
 #define COLOR_TOOLTIP_BACKGROUND      COLOR_TRACK_PANEL_BACKGROUND
 #define COLOR_TOOLTIP_FOREGROUND      WHITE
+
 #define HUD_TIMER_SECS 1.0f
 #define HUD_BUTTON_SIZE 50
 #define HUD_BUTTON_MARGIN 50
@@ -385,7 +388,7 @@ static size_t fft_analyze(float dt)
     return m;
 }
 
-static void fft_render(Rectangle boundary, size_t m)
+static void fft_render(Rectangle boundary, size_t m, Theme *theme)
 {
     // The width of a single bar
     float cell_width = boundary.width/m;
@@ -398,7 +401,8 @@ static void fft_render(Rectangle boundary, size_t m)
     for (size_t i = 0; i < m; ++i) {
         float t = p->out_smooth[i];
         float hue = (float)i/m;
-        Color color = ColorFromHSV(hue*360, saturation, value);
+        
+        Color color = ColorFromHSV(hue*theme->colorfftB.hue, saturation*theme->colorfftB.saturation, value*theme->colorfftB.value);
         Vector2 startPos = {
             boundary.x + i*cell_width + cell_width/2,
             boundary.y + boundary.height - boundary.height*2/3*t,
@@ -421,7 +425,7 @@ static void fft_render(Rectangle boundary, size_t m)
         float start = p->out_smear[i];
         float end = p->out_smooth[i];
         float hue = (float)i/m;
-        Color color = ColorFromHSV(hue*360, saturation, value);
+        Color color = ColorFromHSV(hue*theme->colorfftS.hue, saturation*theme->colorfftS.saturation, value*theme->colorfftS.value);
         Vector2 startPos = {
             boundary.x + i*cell_width + cell_width/2,
             boundary.y + boundary.height - boundary.height*2/3*start,
@@ -461,7 +465,7 @@ static void fft_render(Rectangle boundary, size_t m)
     for (size_t i = 0; i < m; ++i) {
         float t = p->out_smooth[i];
         float hue = (float)i/m;
-        Color color = ColorFromHSV(hue*360, saturation, value);
+        Color color = ColorFromHSV(hue*theme->colorfftS.hue, saturation*theme->colorfftS.saturation, value*theme->colorfftS.value);
         Vector2 center = {
             boundary.x + i*cell_width + cell_width/2,
             boundary.y + boundary.height - boundary.height*2/3*t,
@@ -618,7 +622,7 @@ static void begin_tooltip_frame(void)
     p->tooltip_show = false;
 }
 
-static void end_tooltip_frame(void)
+static void end_tooltip_frame(Theme *theme)
 {
     if (!p->tooltip_show) return;
 
@@ -635,12 +639,12 @@ static void end_tooltip_frame(void)
     align_to_side_of_rect(p->tooltip_element_boundary, &tooltip_boundary, p->tooltip_align);
     snap_boundary_inside_screen(&tooltip_boundary);
 
-    DrawRectangleRounded(tooltip_boundary, 0.4, 20, COLOR_TOOLTIP_BACKGROUND);
+    DrawRectangleRounded(tooltip_boundary, 0.4, 20, theme->color_track_panel_background);
     Vector2 position = {
         .x = tooltip_boundary.x + tooltip_boundary.width/2 - text_size.x/2,
         .y = tooltip_boundary.y + tooltip_boundary.height/2 - text_size.y/2,
     };
-    DrawTextEx(p->font, p->tooltip_buffer, position, fontSize, spacing, COLOR_TOOLTIP_FOREGROUND);
+    DrawTextEx(p->font, p->tooltip_buffer, position, fontSize, spacing, theme->color_tooltip_foreground);
 }
 
 static void tooltip(Rectangle boundary, const char *text, Side align, bool persists)
@@ -653,9 +657,9 @@ static void tooltip(Rectangle boundary, const char *text, Side align, bool persi
     p->tooltip_element_boundary = boundary;
 }
 
-static void timeline(Rectangle timeline_boundary, Track *track)
+static void timeline(Rectangle timeline_boundary, Track *track, Theme *theme)
 {
-    DrawRectangleRec(timeline_boundary, COLOR_TIMELINE_BACKGROUND);
+    DrawRectangleRec(timeline_boundary, theme->color_timeline_background);
 
     float played = GetMusicTimePlayed(track->music);
     float len = GetMusicTimeLength(track->music);
@@ -668,7 +672,7 @@ static void timeline(Rectangle timeline_boundary, Track *track)
         .x = x,
         .y = timeline_boundary.y + timeline_boundary.height
     };
-    DrawLineEx(startPos, endPos, 10, COLOR_TIMELINE_CURSOR);
+    DrawLineEx(startPos, endPos, 10, theme->color_accent);
 
     Vector2 mouse = GetMousePosition();
     if (CheckCollisionPointRec(mouse, timeline_boundary)) {
@@ -772,10 +776,10 @@ void track_label(Font font, const char *text, Vector2 position, float fontSize, 
 }
 
 #define tracks_panel(panel_boundary) \
-    tracks_panel_with_location(__FILE__, __LINE__, panel_boundary)
-static void tracks_panel_with_location(const char *file, int line, Rectangle panel_boundary)
+    tracks_panel_with_location(__FILE__, __LINE__, panel_boundary, theme)
+static void tracks_panel_with_location(const char *file, int line, Rectangle panel_boundary, Theme *theme)
 {
-    DrawRectangleRec(panel_boundary, COLOR_TRACK_PANEL_BACKGROUND);
+    DrawRectangleRec(panel_boundary, theme->color_track_panel_background);
 
     Vector2 mouse = GetMousePosition();
 
@@ -823,9 +827,9 @@ static void tracks_panel_with_location(const char *file, int line, Rectangle pan
 
             int state = button_with_id(item_id, GetCollisionRec(panel_boundary, item_boundary));
             if (state & BS_HOVEROVER) {
-                color = COLOR_TRACK_BUTTON_HOVEROVER;
+                color = theme->color_track_button_hoverover;
             } else {
-                color = COLOR_TRACK_BUTTON_BACKGROUND;
+                color = theme->color_track_button_background;
             }
             if (state & BS_CLICKED) {
                 Track *track = current_track();
@@ -834,7 +838,7 @@ static void tracks_panel_with_location(const char *file, int line, Rectangle pan
                 p->current_track = i;
             }
         } else {
-            color = COLOR_TRACK_BUTTON_SELECTED;
+            color = theme->color_accent;
         }
         // TODO: enable MSAA so the rounded rectangles look better
         // That triggers an old raylib bug with circles tho, so we will have to look into that
@@ -873,7 +877,7 @@ static void tracks_panel_with_location(const char *file, int line, Rectangle pan
             .width = scroll_bar_width,
             .height = panel_boundary.height*t,
         };
-        DrawRectangleRounded(scroll_bar_boundary, 0.8, 20, COLOR_TRACK_BUTTON_BACKGROUND);
+        DrawRectangleRounded(scroll_bar_boundary, 0.8, 20, theme->color_track_button_background);
 
         if (scrolling) {
             if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -1103,7 +1107,7 @@ static bool volume_slider_with_location(const char *file, int line, Rectangle vo
     return dragging || updated;
 }
 
-static void popup_tray(Popup_Tray *pt, Rectangle preview_boundary)
+static void popup_tray(Popup_Tray *pt, Rectangle preview_boundary, Theme *theme)
 {
     float dt = GetFrameTime();
     if (pt->slide > 0) {
@@ -1131,7 +1135,7 @@ static void popup_tray(Popup_Tray *pt, Rectangle preview_boundary)
             .width = popup_width,
             .height = popup_height,
         };
-        DrawRectangleRounded(popup_boundary, 0.3, 20, ColorAlpha(COLOR_POPUP_BACKGROUND, alpha));
+        DrawRectangleRounded(popup_boundary, 0.3, 20, ColorAlpha(theme->color_popup_background, alpha));
         const char *text = "Could not load file";
         float fontSize = popup_boundary.width*0.15;
         Vector2 size = MeasureTextEx(p->font, text, fontSize, 0);
@@ -1148,8 +1152,8 @@ static void popup_tray(Popup_Tray *pt, Rectangle preview_boundary)
 }
 
 #define cancel_rendering_button(boundary) \
-    cancel_rendering_button_with_location(__FILE__, __LINE__, boundary)
-static int cancel_rendering_button_with_location(const char *file, int line, Rectangle boundary)
+    cancel_rendering_button_with_location(__FILE__, __LINE__, boundary, theme)
+static int cancel_rendering_button_with_location(const char *file, int line, Rectangle boundary, Theme *theme)
 {
     uint64_t id = DJB2_INIT;
     id = djb2(id, file, strlen(file));
@@ -1157,7 +1161,7 @@ static int cancel_rendering_button_with_location(const char *file, int line, Rec
 
     int state = button_with_id(id, boundary);
 
-    Color color = (state & BS_HOVEROVER) ? COLOR_TRACK_BUTTON_HOVEROVER : COLOR_TRACK_BUTTON_BACKGROUND;
+    Color color = (state & BS_HOVEROVER) ? theme->color_track_button_hoverover : theme->color_track_button_background;
     DrawRectangleRounded(boundary, 0.4, 20, color);
 
     float pad_x = boundary.width*0.3;
@@ -1173,7 +1177,7 @@ static int cancel_rendering_button_with_location(const char *file, int line, Rec
             boundary.x + boundary.width - pad_x,
             boundary.y + boundary.height - pad_y,
         };
-        DrawLineEx(startPos, endPos, thick, COLOR_TOOLTIP_FOREGROUND);
+        DrawLineEx(startPos, endPos, thick, theme->color_tooltip_foreground);
     }
 
     {
@@ -1185,7 +1189,7 @@ static int cancel_rendering_button_with_location(const char *file, int line, Rec
             boundary.x + boundary.width - pad_x,
             boundary.y + pad_y,
         };
-        DrawLineEx(startPos, endPos, thick, COLOR_TOOLTIP_FOREGROUND);
+        DrawLineEx(startPos, endPos, thick, theme->color_tooltip_foreground);
     }
 
     return state;
@@ -1357,7 +1361,7 @@ static void start_capture(void)
 #endif // MUSIALIZER_MICROPHONE
 
 // TODO: adapt toolbar to narrow widths
-static bool toolbar(Track *track, Rectangle boundary)
+static bool toolbar(Track *track, Rectangle boundary, Theme *theme)
 {
     bool interacted = false;
     int state = 0;
@@ -1370,7 +1374,7 @@ static bool toolbar(Track *track, Rectangle boundary)
 
     if (boundary.width < HUD_BUTTON_SIZE*buttons_count) return interacted;
 
-    DrawRectangleRec(boundary, COLOR_TRACK_PANEL_BACKGROUND);
+    DrawRectangleRec(boundary, theme->color_track_panel_background);
 
     float x = boundary.x;
 
@@ -1435,7 +1439,7 @@ static bool toolbar(Track *track, Rectangle boundary)
     return interacted;
 }
 
-static void preview_screen(void)
+static void preview_screen(Theme *theme)
 {
     int w = GetScreenWidth();
     int h = GetScreenHeight();
@@ -1509,7 +1513,7 @@ static void preview_screen(void)
                     .y = preview_boundary.height,
                     .width = preview_boundary.width,
                     .height = toolbar_height,
-                });
+                }, theme);
 
                 if (interacted) hud_timer = HUD_TIMER_SECS;
             }
@@ -1518,7 +1522,7 @@ static void preview_screen(void)
             bool moved = fabsf(delta.x) + fabsf(delta.y) > 0.0;
             if (moved) hud_timer = HUD_TIMER_SECS;
 
-            fft_render(preview_boundary, m);
+            fft_render(preview_boundary, m, theme);
 
 #if 0
             // TODO: toggle track playing on right mouse click on the preview
@@ -1529,7 +1533,7 @@ static void preview_screen(void)
             (void) button_with_location;
 #endif
 
-            popup_tray(&p->pt, preview_boundary);
+            popup_tray(&p->pt, preview_boundary, theme);
         } else {
             float tracks_panel_width = 320.0f;
             float timeline_height = 150.0f;
@@ -1550,8 +1554,8 @@ static void preview_screen(void)
 #endif
 
             BeginScissorMode(preview_boundary.x, preview_boundary.y, preview_boundary.width, preview_boundary.height);
-            fft_render(preview_boundary, m);
-            popup_tray(&p->pt, preview_boundary);
+            fft_render(preview_boundary, m, theme);
+            popup_tray(&p->pt, preview_boundary, theme);
             EndScissorMode();
 
             tracks_panel((CLITERAL(Rectangle) {
@@ -1566,14 +1570,14 @@ static void preview_screen(void)
                 .y = h - timeline_height,
                 .width = w,
                 .height = timeline_height,
-            }, track);
+            }, track, theme);
 
             toolbar(track, CLITERAL(Rectangle) {
                 .x = tracks_panel_width,
                 .y = preview_boundary.height,
                 .width = preview_boundary.width,
                 .height = toolbar_height,
-            });
+            }, theme);
         }
     } else { // We are waiting for the user to Drag&Drop the Music
         const char *label = "Drag&Drop Music Here";
@@ -1589,7 +1593,7 @@ static void preview_screen(void)
             .y = 0,
             .width = w,
             .height = h,
-        });
+        }, theme);
     }
 }
 
@@ -1659,7 +1663,7 @@ static void capture_screen(void)
 }
 #endif // MUSIALIZER_MICROPHONE
 
-static void rendering_screen(void)
+static void rendering_screen(Theme *theme)
 {
     int w = GetScreenWidth();
     int h = GetScreenHeight();
@@ -1784,10 +1788,10 @@ static void rendering_screen(void)
             size_t m = fft_analyze(1.0f/RENDER_FPS);
 
             BeginTextureMode(p->screen);
-            ClearBackground(COLOR_BACKGROUND);
+            ClearBackground(theme->color_background);
             fft_render(CLITERAL(Rectangle) {
                 0, 0, p->screen.texture.width, p->screen.texture.height
-            }, m);
+            }, m, theme);
             EndTextureMode();
 
             Image image = LoadImageFromTexture(p->screen.texture);
@@ -1804,7 +1808,7 @@ static void rendering_screen(void)
     }
 }
 
-MUSIALIZER_PLUG void plug_init(void)
+MUSIALIZER_PLUG void plug_init(Theme *theme)
 {
     p = malloc(sizeof(*p));
     assert(p != NULL && "Buy more RAM lol");
@@ -1827,7 +1831,8 @@ MUSIALIZER_PLUG void plug_init(void)
     // special.
     {
         size_t data_size;
-        void *data = plug_load_resource(TextFormat("./resources/shaders/glsl%d/circle.fs", GLSL_VERSION), &data_size);
+        void *data = plug_load_resource(TextFormat("./resources/shaders/glsl%d/%s", GLSL_VERSION, theme->shader_path), &data_size);
+        printf("./resources/shaders/glsl%d/%s\n", GLSL_VERSION, theme->shader_path);
         p->circle = LoadShaderFromMemory(NULL, data);
         plug_free_resource(data);
     }
@@ -1867,10 +1872,25 @@ MUSIALIZER_PLUG void plug_post_reload(Plug *pp)
     p->circle_power_location = GetShaderLocation(p->circle, "power");
 }
 
-MUSIALIZER_PLUG void plug_update(void)
+MUSIALIZER_PLUG void plug_update(Theme *theme)
 {
+    if (theme->lastEditTime < GetFileModTime(theme->binpath)) {
+        FILE *fp_theme = fopen(theme->binpath, "r");
+	if (fp_theme != NULL) {
+		size_t bytes_read = fread(theme->cfgpath, 1, sizeof(theme->cfgpath) - 1, fp_theme);
+		theme->cfgpath[bytes_read] = '\0'; // Null-terminate the buffer
+		fclose(fp_theme);
+		//printf("%s\n", b_theme);
+		parse_config_buffer(theme->cfgpath, theme);
+        printf("RELOADED THEME\n");
+	} else { 
+        printf("No theme file\n"); fclose(fp_theme);
+    }
+    }
+    
+    
     BeginDrawing();
-    ClearBackground(COLOR_BACKGROUND);
+    ClearBackground(theme->color_background);
 
     begin_tooltip_frame();
 
@@ -1882,13 +1902,13 @@ MUSIALIZER_PLUG void plug_update(void)
             preview_screen();
         }
 #else
-        preview_screen();
+        preview_screen(theme);
 #endif // MUSIALIZER_MICROPHONE
     } else { // We are in the Rendering Mode
-        rendering_screen();
+        rendering_screen(theme);
     }
 
-    end_tooltip_frame();
+    end_tooltip_frame(theme);
 
     EndDrawing();
 }

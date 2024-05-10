@@ -1,0 +1,12 @@
+colorfftB=360 1 1
+colorfftS=360 1 1
+
+color_track_button_hoverover=55 55 55 FF
+color_track_button_background=38 38 38 FF
+color_accent=33 59 CC FF
+color_background=15 15 15 FF
+color_track_panel_background=12 12 12 FF
+color_timeline_background=0E 0E 0E FF
+color_tooltip_foreground=FF FF FF FF
+
+shaderPath=circle.fs
